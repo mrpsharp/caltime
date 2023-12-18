@@ -5,6 +5,7 @@ import time
 import readchar
 import caldav
 import secrets
+from prettytable import PrettyTable
 
 def timer(args, start = dt.datetime.now()):
     msg = ""
@@ -69,8 +70,32 @@ def open_cal(args):
 
 def list(args):
     calendar = open_cal(args)
-    events = calendar.search(event=True)
-    print(events)
+    calevents = calendar.search(event=True)
+    events = []
+    for event in calevents:
+        events.append({
+            "start": event.icalendar_component.get("dtstart").dt,
+            "end": event.icalendar_component.get("dtend").dt,
+            "summary": event.icalendar_component.get("summary")
+        })
+    events = sorted(events, key=lambda d: d['start'])
+    if args.month:
+        print("Monthly")
+    else:
+        output = PrettyTable()
+        output.field_names=["Date", "Event", "Hours"]
+        output.align = "l"
+        total_hours = 0
+        for event in events:
+            start = event['start']
+            end = event['end']
+            summary = event['summary']
+            t_delta = end - start
+            t_delta_float = float(t_delta.total_seconds())/3600
+            total_hours += t_delta_float
+            output.add_row(["  {:%d/%m/%y}".format(start),summary, "{:.1f}".format(t_delta_float)])
+        output.add_row(["","TOTAL" ,"{:0.1f}".format(total_hours)], divider=True)
+        print(output)
 
 
 parser=argparse.ArgumentParser()
@@ -86,6 +111,7 @@ parser_timer.set_defaults(func=timer)
 # list
 parser_list = subparsers.add_parser('list')
 parser_list.add_argument('-C', '--calendar', type=str)
+parser_list.add_argument('-M', '--month', action='store_true')
 parser_list.set_defaults(func=list)
 
 args = parser.parse_args()
