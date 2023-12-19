@@ -42,7 +42,7 @@ def timer(args, start = dt.datetime.now()):
             timer(args,start)
 
 def save_cal(args,start,stop):
-    dalendar = open_cal(args)
+    calendar = open_cal(args)
     event = calendar.save_event(
         dtstart = start,
         dtend = stop,
