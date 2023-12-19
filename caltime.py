@@ -6,18 +6,17 @@ import readchar
 import caldav
 import secrets
 from prettytable import PrettyTable
+from dateutil.parser import parse
 
-def timer(args, start = dt.datetime.now()):
+def timer(args, begin = dt.datetime.now()):
     msg = ""
-    if args.start:
-        hour = int(args.start.split(":")[0])
-        minute = int(args.start.split(":")[1])
-        start = dt.datetime.now().replace(hour=hour, minute=minute)
+    if args.begin:
+        begin = parse(args.begin, fuzzy=True)
     try: 
         while True:
-            delta = dt.datetime.now() - start
+            delta = dt.datetime.now() - begin
             print(" " * len(msg), end="\r", flush=True) # clear the printed line
-            msg = "You started "+args.activity+" "+humanize.naturaltime(delta)
+            msg = "You begined "+args.activity+" "+humanize.naturaltime(delta)
             print(msg, end='\r')
             time.sleep(1)
     except KeyboardInterrupt:
@@ -27,24 +26,24 @@ def timer(args, start = dt.datetime.now()):
         res = readchar.readchar()
         if res == 'Y' or res == 'y':
             stop = dt.datetime.now()
-            print("\nYou spent " + humanize.precisedelta(stop - start, minimum_unit="seconds")+" on "+args.activity)
-            save_cal(args,start,stop)
+            print("\nYou spent " + humanize.precisedelta(stop - begin, minimum_unit="seconds")+" on "+args.activity)
+            save_cal(args,begin,stop)
             exit(1)
         elif res == 'X' or res=='x':
             stop = dt.datetime.now()
-            print("\nYou spent " + humanize.precisedelta(stop - start, minimum_unit="seconds")+" on "+args.activity)
+            print("\nYou spent " + humanize.precisedelta(stop - begin, minimum_unit="seconds")+" on "+args.activity)
             print("Activity was not saved")
             exit(1)
         else:
             print("  ", end="\r", flush=True)
             print(" " * len(msg), end="", flush=True) # clear the printed line
             print("    ", end="\r", flush=True)
-            timer(args,start)
+            timer(args,begin)
 
-def save_cal(args,start,stop):
+def save_cal(args,begin,stop):
     calendar = open_cal(args)
     event = calendar.save_event(
-        dtstart = start,
+        dtbegin = begin,
         dtend = stop,
         summary=args.activity,
         description="Created with caltime"
@@ -74,11 +73,11 @@ def list(args):
     events = []
     for event in calevents:
         events.append({
-            "start": event.icalendar_component.get("dtstart").dt,
+            "begin": event.icalendar_component.get("dtbegin").dt,
             "end": event.icalendar_component.get("dtend").dt,
             "summary": event.icalendar_component.get("summary")
         })
-    events = sorted(events, key=lambda d: d['start'])
+    events = sorted(events, key=lambda d: d['begin'])
     if args.month:
         print("Monthly")
     else:
@@ -87,13 +86,13 @@ def list(args):
         output.align = "l"
         total_hours = 0
         for event in events:
-            start = event['start']
+            begin = event['begin']
             end = event['end']
             summary = event['summary']
-            t_delta = end - start
+            t_delta = end - begin
             t_delta_float = float(t_delta.total_seconds())/3600
             total_hours += t_delta_float
-            output.add_row(["  {:%d/%m/%y}".format(start),summary, "{:.1f}".format(t_delta_float)])
+            output.add_row(["  {:%d/%m/%y}".format(begin),summary, "{:.1f}".format(t_delta_float)])
         output.add_row(["","TOTAL" ,"{:0.1f}".format(total_hours)], divider=True)
         print(output)
 
@@ -102,10 +101,10 @@ parser=argparse.ArgumentParser()
 subparsers = parser.add_subparsers(required=True)
 
 # timer
-parser_timer = subparsers.add_parser('start')
+parser_timer = subparsers.add_parser('record')
 parser_timer.add_argument('activity', type=str)
 parser_timer.add_argument('-C', '--calendar', type=str)
-parser_timer.add_argument('-S', '--start', type=str)
+parser_timer.add_argument('-B', '--begin', type=str)
 parser_timer.set_defaults(func=timer)
 
 # list
