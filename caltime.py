@@ -1,10 +1,21 @@
+## caltime.py - a caldav time tracker
+
+## Settings are saved in secrets.py which is ignored by git.
+
+# secrets.py
+# url = ""
+# username = ""
+# password = ""
+
+import secrets
+
 import argparse
 import humanize
 import datetime as dt
 import time
 import readchar
 import caldav
-import secrets
+
 from prettytable import PrettyTable
 from dateutil.parser import parse
 
@@ -53,8 +64,10 @@ def save_cal(args,begin,stop):
 def open_cal(args):
     if args.calendar:
         calendar = args.calendar
+        print("Using calendar", calendar)
     else:
         calendar = "Caltime"
+        print("No calendar specificed, using", calendar)
     with caldav.DAVClient(url=secrets.url, username=secrets.username, password=secrets.password) as client:
         dav_principal = client.principal()
     try:
@@ -73,11 +86,11 @@ def list(args):
     events = []
     for event in calevents:
         events.append({
-            "begin": event.icalendar_component.get("dtbegin").dt,
+            "start": event.icalendar_component.get("dtstart").dt,
             "end": event.icalendar_component.get("dtend").dt,
             "summary": event.icalendar_component.get("summary")
         })
-    events = sorted(events, key=lambda d: d['begin'])
+    events = sorted(events, key=lambda d: d['start'])
     if args.month:
         print("Monthly")
     else:
@@ -86,7 +99,7 @@ def list(args):
         output.align = "l"
         total_hours = 0
         for event in events:
-            begin = event['begin']
+            begin = event['start']
             end = event['end']
             summary = event['summary']
             t_delta = end - begin
