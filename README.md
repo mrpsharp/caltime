@@ -1,7 +1,3 @@
-Certainly! Here's a simple README.md file for your `caltime.py` project:
-
----
-
 # Caltime - Caldav Time Tracker
 
 ## Overview
