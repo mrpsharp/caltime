@@ -1,3 +1,4 @@
+#!/Users/petersharp/miniconda3/envs/caltime/bin/python
 ## caltime.py - a caldav time tracker
 
 ## Settings are saved in secrets.py which is ignored by git.
@@ -27,22 +28,22 @@ def timer(args, begin = dt.datetime.now()):
         while True:
             delta = dt.datetime.now() - begin
             print(" " * len(msg), end="\r", flush=True) # clear the printed line
-            msg = "You begined "+args.activity+" "+humanize.naturaltime(delta)
+            msg = "You started "+args.activity+" "+humanize.naturaltime(delta)
             print(msg, end='\r')
             time.sleep(1)
     except KeyboardInterrupt:
         print("  ", end="\r", flush=True)
-        msg = "Ctrl-c was pressed. Do you really want to stop and save activity? (Y)es, (N)o, e(X)it "
+        msg = "Ctrl-c was pressed. Do you really want to end and save activity? (Y)es, (N)o, e(X)it "
         print(msg, end="", flush=True)
         res = readchar.readchar()
         if res == 'Y' or res == 'y':
-            stop = dt.datetime.now()
-            print("\nYou spent " + humanize.precisedelta(stop - begin, minimum_unit="seconds")+" on "+args.activity)
-            save_cal(args,begin,stop)
+            end = dt.datetime.now()
+            print("\nYou spent " + humanize.precisedelta(end - begin, minimum_unit="seconds")+" on "+args.activity)
+            save_cal(args,begin,end)
             exit(1)
         elif res == 'X' or res=='x':
-            stop = dt.datetime.now()
-            print("\nYou spent " + humanize.precisedelta(stop - begin, minimum_unit="seconds")+" on "+args.activity)
+            end = dt.datetime.now()
+            print("\nYou spent " + humanize.precisedelta(end - begin, minimum_unit="seconds")+" on "+args.activity)
             print("Activity was not saved")
             exit(1)
         else:
@@ -51,11 +52,11 @@ def timer(args, begin = dt.datetime.now()):
             print("    ", end="\r", flush=True)
             timer(args,begin)
 
-def save_cal(args,begin,stop):
+def save_cal(args,begin,end):
     calendar = open_cal(args)
     event = calendar.save_event(
-        dtbegin = begin,
-        dtend = stop,
+        dtstart = begin,
+        dtend = end,
         summary=args.activity,
         description="Created with caltime"
         )
@@ -85,14 +86,40 @@ def list(args):
     calevents = calendar.search(event=True)
     events = []
     for event in calevents:
-        events.append({
-            "start": event.icalendar_component.get("dtstart").dt,
-            "end": event.icalendar_component.get("dtend").dt,
-            "summary": event.icalendar_component.get("summary")
-        })
+        try:
+            events.append({
+                "start": event.icalendar_component.get("dtstart").dt,
+                "end": event.icalendar_component.get("dtend").dt,
+                "summary": event.icalendar_component.get("summary")
+            })
+        except:
+            print("Error when reading event:")
+            print(event.data)
+            exit(1)
     events = sorted(events, key=lambda d: d['start'])
     if args.month:
-        print("Monthly")
+        month_times = []
+        current_month = ""
+        for event in events:
+            begin = event['start']
+            end = event['end']
+            t_delta = end - begin
+            t_delta_float = float(t_delta.total_seconds())/3600
+            month = begin.strftime('%B %Y')
+            if month == current_month:
+                month_times[-1]['total'] += t_delta_float
+            else:
+                current_month = month
+                new_month = {
+                    "month":current_month,
+                    "total":t_delta_float} 
+                month_times.append(new_month)
+        output = PrettyTable()
+        output.field_names=["Month", "Hours"]
+        output.align = "l"
+        for month in month_times:
+            output.add_row([month["month"], "{:0.1f}".format(month["total"])])
+        print(output)
     else:
         output = PrettyTable()
         output.field_names=["Date", "Event", "Hours"]
@@ -109,22 +136,25 @@ def list(args):
         output.add_row(["","TOTAL" ,"{:0.1f}".format(total_hours)], divider=True)
         print(output)
 
+def build_parser():
+    parser=argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(required=True)
 
-parser=argparse.ArgumentParser()
-subparsers = parser.add_subparsers(required=True)
+    # timer
+    parser_timer = subparsers.add_parser('record')
+    parser_timer.add_argument('activity', type=str)
+    parser_timer.add_argument('-C', '--calendar', type=str)
+    parser_timer.add_argument('-B', '--begin', type=str)
+    parser_timer.set_defaults(func=timer)
 
-# timer
-parser_timer = subparsers.add_parser('record')
-parser_timer.add_argument('activity', type=str)
-parser_timer.add_argument('-C', '--calendar', type=str)
-parser_timer.add_argument('-B', '--begin', type=str)
-parser_timer.set_defaults(func=timer)
+    # list
+    parser_list = subparsers.add_parser('list')
+    parser_list.add_argument('-C', '--calendar', type=str)
+    parser_list.add_argument('-M', '--month', action='store_true')
+    parser_list.set_defaults(func=list)
+    return parser
 
-# list
-parser_list = subparsers.add_parser('list')
-parser_list.add_argument('-C', '--calendar', type=str)
-parser_list.add_argument('-M', '--month', action='store_true')
-parser_list.set_defaults(func=list)
-
-args = parser.parse_args()
-args.func(args)
+if __name__ == "__main__":
+    parser = build_parser()
+    args = parser.parse_args()
+    args.func(args)
